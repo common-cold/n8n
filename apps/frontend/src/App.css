@@ -1,0 +1,25 @@
+* {
+  box-sizing: border-box;
+}
+
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+
+.primaryColorBg {
+  background-color: #2d2e2e;
+}
+
+.secondaryColorBg {
+  background-color: #414244;
+}
+
+.orangeColorBg {
+  background-color: #ff6f5c;
+}
