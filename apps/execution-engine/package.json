@@ -1,0 +1,25 @@
+{
+  "name": "execution-engine",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@repo/redis": "*",
+    "@repo/db": "*",
+    "@repo/types": "*",
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@repo/common-utils": "*",
+    "@types/crypto-js": "^4.2.2",
+    "@types/nodemailer": "^7.0.1",
+    "bullmq": "^5.58.5",
+    "crypto-js": "^4.2.0",
+    "dotenv": "^17.2.2",
+    "nodemailer": "^7.0.6",
+    "typescript-telegram-bot-api": "^0.10.0",
+    "zod": "^4.1.9"
+  }
+}

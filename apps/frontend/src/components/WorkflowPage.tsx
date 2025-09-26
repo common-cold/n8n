@@ -13,17 +13,17 @@ export function WorkflowPage() {
                 <ReactFlowProvider>
                     <div className="relative">
                         <div className="flex flex-row h-screen font-satoshi">
-                            <div className="secondaryColorBg w-52 py-5 px-10" >
+                            <div className="secondaryColorBg w-52 py-5 px-10 borderStyle" >
                                 HI
                             </div>
-                            <div className="primaryColorBg flex-1 py-5 px-5 flex flex-col gap-7">
+                            <div className="primaryColorBg flex-1 flex flex-col">
                                 <WorkflowPageHeader id={id}/>
                                 <Canvas id={id}/>
                             </div>
                         </div>
                     </div>
+                    <Outlet />
                 </ReactFlowProvider>
-                <Outlet />
             </div>
         )
         :

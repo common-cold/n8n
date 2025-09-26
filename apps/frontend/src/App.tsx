@@ -4,7 +4,7 @@ import { Homepage } from './components/Hompage';
 import { WorkflowPage } from './components/WorkflowPage';
 import { Toaster } from 'react-hot-toast';
 import { ReactFlowProvider } from 'reactflow';
-import { NodeConfigModal } from './components/NodeConfigurationModal';
+import { NodeEditPage } from './components/NodeEditPage';
 
 
 function App() {
@@ -14,7 +14,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Homepage/>} />
             <Route path="/workflows/:id" element={<WorkflowPage/>}>
-              <Route path=":pageId" element={<NodeConfigModal/>}></Route>
+              <Route path="edit/:pageId" element={<NodeEditPage/>}></Route>
             </Route>
           </Routes>
           <Toaster

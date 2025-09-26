@@ -1,45 +1,40 @@
 import { useState } from "react";
-import { Position, type NodeProps } from "reactflow";
+import { Position, useReactFlow, type NodeProps } from "reactflow";
 import { CustomSourceHandle, CustomTargetHandle } from "./CustomHandle";
 import { Plus } from "react-bootstrap-icons";
 import { useCommonReactFlowFunctions } from "../../hooks/react-flow-hooks";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { currentNodeIdAtom, newNodeMetadataAtom, showNodeTypeListAtom } from "../../store/atoms";
 
-export function SecondaryNode({id, data: {label}}: NodeProps<{label: string}>) {
-    const [open, setOpen] = useState(false);
-    const {hasOutgoingEdge, addNodeAndCreateEdge} = useCommonReactFlowFunctions();
+export function SecondaryNode({id, data: {label, type}}: NodeProps<{label: string, type: string}>) {
+    const location = useLocation();
+    const navigate = useNavigate();
+    const {hasOutgoingEdge} = useCommonReactFlowFunctions();
+    const setCurrentNodeId = useSetAtom(currentNodeIdAtom);
+    const setShowNodeTypeList = useSetAtom(showNodeTypeListAtom);
+    const setNewNodeMetadata = useSetAtom(newNodeMetadataAtom);
 
     return <div>
         <div className="relative w-[130px] h-[120px] bg-[#414244] border-2 border-white hover:border-[#ff6f5c] rounded-[10px] text-black p-1 flex justify-center items-center"
-            onClick={() => setOpen(true)}
+            onDoubleClick={() => {
+                setCurrentNodeId(id);
+                navigate(`${location.pathname}/edit/${type}`)
+            }}
         >
             {label}
         </div>
-        {/* {open && (
-            <div className="absolute top-10 left-10 bg-white p-4 border rounded shadow">
-            <h3 className="mb-2">Edit Node</h3>
-            <input
-                type="text"
-                defaultValue={label}
-                className="border p-1"
-            />
-            <button
-                className="ml-2 px-2 py-1 bg-blue-500 text-white"
-                onClick={() => setOpen(false)}
-            >
-                Close
-            </button>
-            </div>
-        )}
-
-        */}
-        
         <CustomSourceHandle type="source" position={Position.Right} />
         {
             !hasOutgoingEdge(id) && 
             <div className="absolute right-[-100px] top-[49px] flex items-center">
                 <div className="h-[3px] w-[70px] bg-white"></div>
                 <button
-                    onClick={() => addNodeAndCreateEdge(id)}
+                    onClick={(e) => {
+                        const {clientX, clientY} = e;
+                        setNewNodeMetadata({x: clientX, y: clientY, sourceNode: id});
+                        setShowNodeTypeList(true);
+                    }}
                     className="bg-white text-black rounded-full w-6 h-6 flex items-center justify-center"
                 >
                 <Plus size={12} />

@@ -1,8 +1,11 @@
 import type { Edge, Node } from "reactflow";
-import type { Connections, CustomNode, GetWorkFlow, NodeType, SourceInfo, Targets, UpsertWorkFlow} from "@repo/types";
+import type { Connections, CredentialType, CustomNode, NodeCredentials, PostCredential, SourceInfo, Targets, UpsertWorkFlow} from "@repo/types";
 import axios from "axios";
+import { encryptData } from "@repo/common-utils";
+
 
 const USER_ID = "01994f06-dcd6-7a30-8de7-356ee6329445";
+const ENCRYPTION_KEY = import.meta.env.VITE_ENCRYPTION_KEY;
 
 export function generateUUID() {
     return crypto.randomUUID();
@@ -13,8 +16,11 @@ export async function createWorkFlow(name: string , nodes: Node[], edges: Edge[]
         return {
             id: node.id,
             name: node.data.label,
-            type: node.type as NodeType,
-            position: node.position
+            isPrimaryNode: node.type === "primaryNode",
+            position: node.position,
+            type: node.data.type,
+            ...(node.data.parameters && { parameters: node.data.parameters }),
+            ...(node.data.credentialId && { credentialId: node.data.credentialId }),
         }
     });
     
@@ -77,4 +83,79 @@ export async function getWorkflow(workflowId: string) {
     } catch(e) {
         return null;
     }
+}
+
+export async function getAllNodeTypes() {
+    try {
+        const response = await axios.get(`http://localhost:8080/node-type`);
+        return response;
+    } catch(e) {
+        return null;
+    }   
+}
+
+export async function saveCredential(credentials: NodeCredentials, credentialName: string, credentialType: CredentialType, userId: string) {
+    try {
+        const stringData = JSON.stringify(credentials);
+        const ciphertext = encryptData(stringData, ENCRYPTION_KEY);
+        const credentialObj: PostCredential= {
+            name: credentialName,
+            data: ciphertext,
+            type: credentialType,
+            userId: userId
+        }
+        const response = await axios.post("http://localhost:8080/credential", credentialObj);
+        return response;
+    } catch (e) {
+        return null;
+    }
+}
+
+
+export async function getUserCredentialsByType(type: CredentialType | "all") {
+    try {
+        const response = await axios.get(`http://localhost:8080/credential/${type}`);
+        return response;
+    } catch (e) {
+        return null;
+    }
+}
+
+export async function getOAuthUrl(credentialId: string) {
+    try {
+        const encryptedCredentialId = encryptData(credentialId, ENCRYPTION_KEY);
+
+        const response = await axios.get("http://localhost:8080/oauth/auth", {
+            params: {
+                state: encodeURIComponent(encryptedCredentialId)
+            }
+        });
+
+        return response;
+    } catch (e) {
+        return null;
+    }
+}
+
+
+export async function getOAuthStatus(credentialId: string) {
+    try {
+        const response = await axios.get(`http://localhost:8080/oauth/status/${credentialId}`);
+        return response;
+    } catch (e) {
+        return null;
+    }
+}
+
+export async function pollForOAuthStatus(credentialId: string) {
+    const now = new Date().getTime();
+    const threeMins = now +  180000;
+    while (now <= threeMins) {
+        const res = await getOAuthStatus(credentialId);
+        if (res != null && res.data === "true") {
+            return true;
+        }
+        await new Promise(r => setTimeout(r, 1000));
+    }
+    return false;
 }

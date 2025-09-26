@@ -37,7 +37,7 @@ export function WorkflowPageHeader({id} : {id: string}) {
         }
         
     }
-    return <div className="flex justify-between font-satoshi">
+    return <div className="flex justify-between font-satoshi secondaryColorBg borderStyle px-10 py-2">
         <div className="flex flex-col">
             <div className="font-bold text-white text-2xl">
                 Personal

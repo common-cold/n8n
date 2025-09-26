@@ -10,11 +10,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@repo/common-utils": "*",
     "@repo/db": "*",
     "@repo/types": "*",
     "@tailwindcss/vite": "^4.1.13",
     "@types/axios": "^0.14.4",
+    "@types/crypto-js": "^4.2.2",
     "axios": "^1.12.1",
+    "crypto-js": "^4.2.0",
     "jotai": "^2.14.0",
     "react": "^19.1.1",
     "react-bootstrap-icons": "^1.11.6",

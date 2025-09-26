@@ -16,6 +16,7 @@ model User {
   lastName  String
   createdAt DateTime   @default(now())
   workflows Workflow[]
+  credentials Credential[]
 }
 
 model Workflow {
@@ -27,4 +28,23 @@ model Workflow {
   createdAt   DateTime
   updatedAt   DateTime
   user        User     @relation(fields: [userId], references: [id])
+}
+
+model NodeType {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  name            String
+  description     String
+  url             String
+}
+
+
+model Credential {
+  id              String     @id @default(uuid(7)) @db.Uuid
+  name            String
+  data            String
+  type            String
+  userId          String     @db.Uuid
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @default(now())
+  user            User       @relation(fields: [userId], references: [id])
 }

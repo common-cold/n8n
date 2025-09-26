@@ -1,18 +1,19 @@
 {
-  "name": "@repo/types",
+  "name": "@repo/redis",
   "module": "index.ts",
-  "type": "module",
-  "exports": {
-    ".": "./index.ts"
-  },
   "devDependencies": {
     "@types/bun": "latest"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
   },
+  "exports": {
+    ".": "./index.ts"
+  },
+  "type": "module",
   "dependencies": {
     "@repo/db": "*",
-    "zod": "^4.1.9"
+    "bullmq": "^5.58.5",
+    "redis": "^5.8.2"
   }
 }

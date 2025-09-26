@@ -1,6 +1,8 @@
 import { BezierEdge, EdgeLabelRenderer, getBezierPath, MarkerType, useEdges, useNodes, type EdgeProps } from "reactflow";
-import { X, Pencil, Plus, Trash } from "react-bootstrap-icons"; // Example icons
-import { useEffect, useRef } from "react";
+import { Plus, Trash } from "react-bootstrap-icons"; // Example icons
+import { useCommonReactFlowFunctions } from "../../hooks/react-flow-hooks";
+import { useAtom, useSetAtom } from "jotai";
+import { newNodeMetadataAtom, showNodeTypeListAtom } from "../../store/atoms";
 
 export function CustomEdge(props: EdgeProps) {
   const {
@@ -22,9 +24,10 @@ export function CustomEdge(props: EdgeProps) {
     targetPosition,
   });
 
-  const setEdges = useEdges();
-  const setNodes = useNodes();
 
+  const {deleteNodeAndEdge} = useCommonReactFlowFunctions();
+  const setShowNodeTypeList = useSetAtom(showNodeTypeListAtom);
+  const setNewNodeMetadata = useSetAtom(newNodeMetadataAtom);
 
   return (
     <>
@@ -47,7 +50,7 @@ export function CustomEdge(props: EdgeProps) {
           }}
         >
           <button
-            onClick={() => console.log("delete edge", id)}
+            onClick={() => deleteNodeAndEdge(props.target, props.source)}
             style={{
               background: "white",
               border: "1px solid #ccc",
@@ -59,7 +62,11 @@ export function CustomEdge(props: EdgeProps) {
             <Trash />
           </button>
           <button
-            onClick={() => console.log("add node", id)}
+            onClick={(e) => {
+              const {clientX, clientY} = e;
+              setNewNodeMetadata({x: clientX, y: clientY, sourceNode: props.source});
+              setShowNodeTypeList(true);
+            }}
             style={{
               background: "white",
               border: "1px solid #ccc",

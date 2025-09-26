@@ -4,6 +4,7 @@
 
 
 html, body, #root {
+  font-family: 'Satoshi', sans-serif;
   height: 100%;
   width: 100%;
   margin: 0;
@@ -22,4 +23,37 @@ html, body, #root {
 
 .orangeColorBg {
   background-color: #ff6f5c;
+}
+
+.lightGrey {
+  background-color: #525456;
+}
+
+.inputStyle {
+  height: 30px;
+  border-radius: 5px;
+  border: 0.5px solid #525456;
+  padding-inline: 10px;
+  padding-block: 8px;
+  background-color: #2d2e2e;
+}
+
+.inputStyle:focus {
+  border-color: #ff6f5c;
+  outline: none;
+}
+
+.dropDownBg {
+  background-color: #2d2e2e;
+}
+
+.iconStyle {
+  width: 25px;
+  height: 25px;
+  margin-right: 5px;
+}
+
+.borderStyle {
+  border-width: 0.1px;
+  border-color: #4a4b4d;
 }
