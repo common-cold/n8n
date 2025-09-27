@@ -6,7 +6,6 @@ import { decryptData } from  "@repo/common-utils";
 
 export async function runSendGmailMail(credentialId: string , parameter: GmailSendMailParamaters): Promise<NodeExecutionResult> {
     const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
-    console.log(ENCRYPTION_KEY);
     try {
         const credentialEntity = await prisma.credential.findFirst({
             where: {
@@ -22,10 +21,10 @@ export async function runSendGmailMail(credentialId: string , parameter: GmailSe
                 }
             };
         }
-        console.log(credentialEntity);
+
         const credentialString = decryptData(credentialEntity.data, ENCRYPTION_KEY!);
         const gmailCredential: GmailCredentials = JSON.parse(credentialString);
-        console.log(gmailCredential);
+
 
         const transporter = nodemailer.createTransport({
             service: "gmail",
@@ -34,7 +33,7 @@ export async function runSendGmailMail(credentialId: string , parameter: GmailSe
                 user: "prajjwalkohli@gmail.com", //TODO: fix this
                 clientId: gmailCredential.clientId,
                 clientSecret: gmailCredential.clientSecret,
-                accessToken: gmailCredential.accessToken
+                refreshToken: gmailCredential.refreshToken
             }
         });
 
@@ -47,11 +46,10 @@ export async function runSendGmailMail(credentialId: string , parameter: GmailSe
 
         return {
             success: true,
-            output: {
-                info: JSON.stringify(info)
-            }
+            output: info
         };
     } catch (e) {
+        console.log(e);
         return {
             success: false,
             error: {
@@ -61,10 +59,5 @@ export async function runSendGmailMail(credentialId: string , parameter: GmailSe
     }
 }
 
-console.log(await runSendGmailMail("019987c1-7a45-7042-8422-2b03b8c65063", {
-    "to": "prajjwalk@iitbhilai.ac.in",
-    "message": "good morning",
-    "subject": "Hello",
-    "emailType": "HTTP"
-}));
+
 

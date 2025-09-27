@@ -1,17 +1,16 @@
-import { GmailSendEmailSchema, TelegramSendMessageSchema, type Connections, type CustomNode, type NodeIssue, type NodeType, type TelegramSendMessageParamaters, type WorkflowIssues } from "@repo/types";
+import { GmailCredentialsSchema, GmailSendEmailSchema, TelegramCredentialSchema, TelegramSendMessageSchema, type Connections, type CredentialType, type CustomNode, type NodeCredentials, type NodeIssue, type NodeType, type TelegramSendMessageParamaters, type WorkflowIssues } from "@repo/types";
 import type { Workflow } from "../../packages/db/generated/prisma";
 import dotenv from "dotenv";
 import {join} from "path";
-
-
-dotenv.config({ path: join(__dirname, "..", "..", ".env") });
+import { prisma } from "@repo/db/client";
+import { decryptData } from "@repo/common-utils";
 
 
 export type NodeGraph = Map<string, Array<string>>;
 
-export type Output = {
-    output: {} | null
-};
+export type Output = { 
+    [key: string]: any
+}
 
 export type NodesOutput = Map<string, Output>;
 
@@ -35,27 +34,29 @@ export function initialiseNodesOutputMap(nodegraph: NodeGraph, nodesOutput: Node
     for (const key of nodegraph.keys()) {
         nodesOutput.set(key, {output: null});
     }
-
-    console.log(nodesOutput);
 }
 
-export function checkWorkflowIssues(workflow: Workflow) {
+export async function checkWorkflowIssues(workflow: Workflow) {
     let workflowIssues: WorkflowIssues = {
         workflowName: workflow.name,
         nodeIssues: []
     };
     for (const node of workflow.nodes as CustomNode[]) {
-        const credentialStatus = checkCredentials(workflow.userId, node.type!);
+        const credentialStatus = await checkCredentials(node.credentialId);
         if (!credentialStatus.ok) {
-            const credentialIssue: NodeIssue = {
-                nodeName: node.name,
-                issue: credentialStatus.issue!
+            for (const issue of credentialStatus.issueArray!) {
+                const credentialIssue: NodeIssue = {
+                    nodeName: node.name,
+                    issue: issue
+                }
+                workflowIssues.nodeIssues.push(credentialIssue);
             }
-            workflowIssues.nodeIssues.push(credentialIssue);
         }
         let res;
         try {
-            
+            if (!node.type) {
+                continue;
+            }
             if (node.type === "telegram.sendMessage") {
                 res = TelegramSendMessageSchema.safeParse(node.parameters);
             } else if (node.type === "gmail.sendMail") {
@@ -82,11 +83,52 @@ export function checkWorkflowIssues(workflow: Workflow) {
 }
 
 
-function checkCredentials(userId: string, nodeType: NodeType): {
+async function checkCredentials(credentialId: string | undefined): Promise<{
     ok: boolean,
-    issue?: string
-} {
-    return {
-        ok: true
-    };
+    issueArray?: string[]
+}> {
+    try {
+        if (!credentialId) {
+            return {
+                ok: false,
+                issueArray: ["Credential Id is Empty"]
+            }
+        }
+        const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
+        const issueArray: string[] = [];
+        const credentialDb = await prisma.credential.findFirst({
+            where: {
+                id: credentialId
+            }
+        });
+        if (!credentialDb) {
+            return {
+                ok: false,
+                issueArray: ["Credential Does Not Exist"]
+            }
+        }
+        const credentialData: NodeCredentials = JSON.parse(decryptData(credentialDb.data, ENCRYPTION_KEY!));
+        const credentialType: CredentialType = credentialDb.type as CredentialType;
+        let res;
+        if (credentialType === "telegram") {
+            res = TelegramCredentialSchema.safeParse(credentialData);
+        } else if (credentialType === "gmail") {
+            res = GmailCredentialsSchema.safeParse(credentialData);
+        }
+        if (!res!.success) {
+            for (const issue of res!.error.issues) {
+                issueArray.push(`${String(issue.path[0])}: ${issue.message}`);
+            }
+        }
+        let isSuccess = issueArray.length === 0 ? true : false;
+        return {
+            ok: isSuccess,
+            issueArray: issueArray
+        } 
+    } catch (e) {
+        return {
+            ok: false,
+            issueArray: [JSON.stringify(e)]
+        }
+    }
 }

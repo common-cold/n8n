@@ -53,7 +53,8 @@ export type GmailCredentials = {
     oAuthRedirectUrl: string,
     clientId: string,
     clientSecret: string
-    accessToken?: string
+    refreshToken?: string,
+    expiresIn: number
 }
 
 export type NodeCredentials = TelegramCredentials | GmailCredentials

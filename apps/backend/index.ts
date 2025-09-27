@@ -436,8 +436,9 @@ app.get("/oauth/callback", async (req, res) => {
 
         const token = tokenRes.data;
 
-        //update gmail credential object by adding acces token in it
-        gmailCredential.accessToken = token.access_token;
+        //update gmail credential object by adding refresh token and expiry in it
+        gmailCredential.refreshToken = token.refresh_token;
+        gmailCredential.expiresIn = token.refresh_token_expires_in;
 
         //encrypt it
         const encryptedCredentialData = encryptData(JSON.stringify(gmailCredential), ENCRYPTION_KEY!); 
