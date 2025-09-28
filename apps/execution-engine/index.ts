@@ -5,92 +5,11 @@ dotenv.config({ path: join(__dirname, "..", "..", ".env") });
 
 
 import type {Workflow} from "../../packages/db/generated/prisma";
-import type {CustomNode, Connections, WorkflowIssues} from "@repo/types"
+import type {CustomNode, Connections, WorkflowIssues, GmailCredentialsSchema, AgentSubNode} from "@repo/types"
 import { buildNodeGraph, checkWorkflowIssues, initialiseNodesOutputMap, type NodeGraph, type NodesOutput } from "./utils";
 import { runAction } from "./actions/action-handler";
 
 
-
-const workflow: Workflow = {
-    "id": "019988c2-1a8a-72a1-bcac-1d5eaaa65759",
-    "name": "Workflow-1",
-    "nodes": [
-        {
-            "id": "a8bee913-2bd3-4ea4-82f1-cf26501b11a3",
-            "name": "Node 1",
-            "position": {
-                "x": 10,
-                "y": 10
-            },
-            "credentialId": "019987ea-4cd9-7fe0-9c9c-488fe6d4fd51",
-            "isPrimaryNode": true
-        },
-        {
-            "id": "d358e142-0dae-4f97-919b-337195af60f7",
-            "name": "Node-x",
-            "type": "gmail.sendMail",
-            "position": {
-                "x": 527.1999969482422,
-                "y": 314.6124954223633
-            },
-            "parameters": {
-                "to": "prajjwalk@iitbhilai.ac.in",
-                "message": "Inifnity goes brrrrrr",
-                "subject": "Infinity",
-                "emailType": "HTTP"
-            },
-            "credentialId": "019988b6-2865-7480-b994-71abd38055d2",
-            "isPrimaryNode": false
-        },
-        {
-            "id": "41aef018-517b-4184-b8d0-5adf47282a7a",
-            "name": "Node-x",
-            "type": "telegram.sendMessage",
-            "position": {
-                "x": 518.1999969482422,
-                "y": 22.61249542236328
-            },
-            "parameters": {
-                "chatId": "6679087141",
-                "message": "Infinity goes brrr......"
-            },
-            "credentialId": "019987ea-4cd9-7fe0-9c9c-488fe6d4fd51",
-            "isPrimaryNode": false
-        }
-    ],
-    "connections": [
-        {
-            "targets": [
-                {
-                    "targetId": "d358e142-0dae-4f97-919b-337195af60f7",
-                    "connectionId": "95f468f4-0945-4684-9ce9-1f6939cb944b"
-                }
-            ],
-            "sourceId": "a8bee913-2bd3-4ea4-82f1-cf26501b11a3"
-        },
-        {
-            "targets": [
-                {
-                    "targetId": "41aef018-517b-4184-b8d0-5adf47282a7a",
-                    "connectionId": "2c6e4a8b-b124-4270-be05-c32a2456bee9"
-                }
-            ],
-            "sourceId": "d358e142-0dae-4f97-919b-337195af60f7"
-        },
-        {
-            "targets": [
-                {
-                    "targetId": "d358e142-0dae-4f97-919b-337195af60f7",
-                    "connectionId": "10f0ea9c-d772-426b-9ef6-537c1bea8272"
-                }
-            ],
-            "sourceId": "41aef018-517b-4184-b8d0-5adf47282a7a"
-        }
-    ],
-    "userId": "01994f06-dcd6-7a30-8de7-356ee6329445",
-    "createdAt": new Date("2025-09-27T01:20:46.109Z"),
-    "updatedAt": new Date("2025-09-27T01:20:46.109Z")
-}
 
 async function runWorkflow(workflow: Workflow) {
     const nodegraph: NodeGraph = new Map();
@@ -104,6 +23,7 @@ async function runWorkflow(workflow: Workflow) {
 
     buildNodeGraph(workflow.nodes as CustomNode[], workflow.connections as Connections, nodegraph);
     initialiseNodesOutputMap(nodegraph, nodesOutput);
+    
 
     console.log(nodegraph);
     console.log(nodesOutput);
@@ -125,7 +45,10 @@ async function runWorkflow(workflow: Workflow) {
                 .filter(([source, targets]) => targets.includes(nodeId))
                 .map(([source]) => source.toString());
 
-            if (nodeId !== "a8bee913-2bd3-4ea4-82f1-cf26501b11a3") {
+            if (nodeId !== "c3e732d5-9c61-45c0-a45f-1f8bd6e73a06" && 
+                nodeId !== "63df5c1d-02c9-47b8-84ac-9332b655658b" &&
+                nodeId !== "ecc4f9c0-eb17-4dbf-b151-4151c6162efd"
+            ) {
                 await runNode(nodeId!, parentIds, workflowNodes, nodesOutput);    
             }
 

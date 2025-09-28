@@ -2,16 +2,18 @@ import { useState } from "react";
 import type { Credential } from "../../../../packages/db/generated/prisma";
 import { Pencil } from "react-bootstrap-icons";
 
+export type GenericDropDownProp = {name: string, id: string};
+
 type DropDownProps  = {
-    options: Credential[],
+    options: Credential[] | GenericDropDownProp[],
     defaultOption: string | null,
     defaultText: string,
-    onChange: (option: string) => void
-    addNewHandler: () => void
+    onChange: (option: string) => void,
+    addNewHandler: (() => void) | null
 }
 
 type OptionProps = {
-    option?: Credential, 
+    option?: Credential | GenericDropDownProp, 
     index: number,
     isAddNewOption: boolean
 } 
@@ -34,7 +36,7 @@ export function DropDownComponent({ options, defaultOption, defaultText, onChang
                         }}
                     >
                         {
-                            selectedOption !== null
+                            selectedOption
                             ?
                             defaultOption
                             :
@@ -58,7 +60,7 @@ export function DropDownComponent({ options, defaultOption, defaultText, onChang
                     </div>
                 </div>
                 {
-                    selectedOption !== null 
+                    (addNewHandler != null && selectedOption !== null) 
                     &&
                     (
                         <div onClick={() => {
@@ -73,7 +75,11 @@ export function DropDownComponent({ options, defaultOption, defaultText, onChang
                 <div
                     className="overflow-y-auto overflow-x-hidden transition-all duration-300 max-h-[120px] absolute w-full top-full left-0 z-[999] bg-white border border-[#525456] rounded-[3px] mt-[2px] shadow-[0_4px_8px_rgba(0,0,0,0.1)]"
                 >
-                    <OptionComponent index={0} isAddNewOption={true} />
+                    {
+                        addNewHandler != null 
+                        &&
+                        <OptionComponent index={0} isAddNewOption={true} />
+                    }
                     {options.map((option, index) => (
                        <OptionComponent option={option} index={index + 1} isAddNewOption={false}/>
                     ))}
@@ -89,7 +95,8 @@ export function DropDownComponent({ options, defaultOption, defaultText, onChang
             onMouseLeave={() => setHovered(null)}
             onClick={() => {
                 if (isAddNewOption) {
-                    addNewHandler();
+                    if (addNewHandler)
+                        addNewHandler();
                 } else {
                     setSelectedOption(option!.name);
                     onChange(option!.id);

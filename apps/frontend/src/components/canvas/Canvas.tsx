@@ -8,10 +8,12 @@ import { generateUUID, getAllNodeTypes, getWorkflow } from '../../utils/utils';
 import { useEffect, useState } from 'react';
 import { showErrorToast } from '../WorkflowPage';
 import type { Workflow } from '../../../../../packages/db/generated/prisma';
-import type { Connections, CustomNode, GetNodeType, NodeType } from '@repo/types';
-import { useAtom } from 'jotai';
-import { showNodeTypeListAtom } from '../../store/atoms';
+import type { AgentParameters, ApiParamNodeType, Connections, CustomNode, FrontendAgentParameters, GetNodeType, NodeType } from '@repo/types';
+import { useAtom, useAtomValue } from 'jotai';
+import { nodeTypeToShow, showNodeTypeListAtom } from '../../store/atoms';
 import { useCommonReactFlowFunctions } from '../../hooks/react-flow-hooks';
+import { AgentNode } from './AgentNode';
+import { AgentSubNode } from './AgentSubNode';
 
 
 
@@ -51,7 +53,9 @@ import { useCommonReactFlowFunctions } from '../../hooks/react-flow-hooks';
 
 const nodeTypes = {
     primaryNode: PrimaryNode,
-    secondaryNode: SecondaryNode
+    secondaryNode: SecondaryNode,
+    agentNode: AgentNode,
+    agentSubNode: AgentSubNode
 }
 
 const edgeTypes = {
@@ -62,13 +66,18 @@ export function Canvas({id} : {id: string}) {
     const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
     const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
     const [showNodeTypeList, setShowNodeTypeList] = useAtom(showNodeTypeListAtom);
+    const [basicNodeTypeList, setBasicNodeTypeList] = useState<GetNodeType[]>([]);
+    const [toolNodeTypeList, setToolNodeTypeList] = useState<GetNodeType[]>([]);
+    const [LLMNodeTypeList, setLLMNodeTypeList] = useState<GetNodeType[]>([]);
     const [nodeTypeList, setNodeTypeList] = useState<GetNodeType[]>([]);
+    const currNodeTypeToShow = useAtomValue(nodeTypeToShow);
     const [mouseEnterIndex, setMouseEnterIndex] = useState<number | null>(null);
     const {addNodeAndCreateEdge} = useCommonReactFlowFunctions();
 
     console.log(JSON.stringify(edges));
     console.log(JSON.stringify(nodes));
     console.log("----------------------------------");
+    console.log(currNodeTypeToShow);
 
     function onConnect(connection: Connection) {
         const edge = {...connection, id: generateUUID(), type: "customEdge", markerEnd:{type: MarkerType.ArrowClosed, color: "white"}}
@@ -111,37 +120,113 @@ export function Canvas({id} : {id: string}) {
         const nodesDb: CustomNode[] = workflow.nodes as CustomNode[];
         let nodes:Node[] = [];
         if (nodesDb.length > 0) {
+            
+            //extract basic nodes
             nodes = nodesDb.map((nodeDb, index) => {
+                let nodeType;
+                if (nodeDb.type === "agent") {
+                    nodeType = "agentNode";
+                } else if (nodeDb.isPrimaryNode) {
+                    nodeType = "primaryNode";
+                } else {
+                    nodeType = "secondaryNode";
+                }
+
+                let parameters;
+                if (nodeDb.parameters) {
+                    let p = nodeDb.parameters as AgentParameters;
+                    if (nodeDb.type === "agent") {
+                        parameters = {
+                            prompt: p.prompt ?? ""
+                        } as FrontendAgentParameters
+                    } else {
+                        parameters = nodeDb.parameters
+                    }
+                }
                 return {
                     id: nodeDb.id,
                     data: {
                         label: nodeDb.name,
                         type: nodeDb.type,
-                        ...(nodeDb.parameters && {parameters: nodeDb.parameters}),
-                        ...(nodeDb.credentialId && {credentialId: nodeDb.credentialId})
+                        ...(nodeDb.parameters && {parameters: parameters}),
+                        ...((nodeDb.credentialId) && {credentialId: parameters})
                     },
-                    type: nodeDb.isPrimaryNode ? "primaryNode" : "secondaryNode",
+                    type: nodeType,
                     position: {x: nodeDb.position.x , y: nodeDb.position.y },
                     
                 } as Node
             });
+
+            //extract agent sub nodes
+            nodesDb.map((nodeDb) => {
+                if (nodeDb.type == "agent") {
+                    let nodeParams = nodeDb.parameters as AgentParameters;
+                    if (nodeParams.llm.length > 0) {
+                        for (const subNode of nodeParams.llm) {
+                            nodes.push({
+                                id: subNode.id,
+                                data: {
+                                    label: subNode.name,
+                                    type: subNode.type,
+                                    ...(subNode.parameters && {parameters: subNode.parameters}),
+                                    ...(subNode.credentialId && {credentialId: subNode.credentialId})
+                                },
+                                type: "agentSubNode",
+                                position: {x: subNode.position.x , y: subNode.position.y },
+                            } as Node);
+                        }
+                    }
+                    if (nodeParams.tools.length > 0) {
+                        for (const subNode of nodeParams.tools) {
+                            nodes.push({
+                                id: subNode.id,
+                                data: {
+                                    label: subNode.name,
+                                    type: subNode.type,
+                                    ...(subNode.parameters && {parameters: subNode.parameters}),
+                                },
+                                type: "agentSubNode",
+                                position: {x: subNode.position.x , y: subNode.position.y },
+                            } as Node);
+                        }
+                    }
+                }
+            });
         }
+
         const connections: Connections = workflow.connections as Connections;
         let edges: Edge[] = []
         if (connections.length > 0) {
             for (const connection of connections) {
                 for (const target of connection.targets) {
-                    const edge: Edge = {
-                        id: target.connectionId,
-                        source: connection.sourceId,
-                        target: target.targetId,
-                        type: "customEdge", 
-                        markerEnd:{type: MarkerType.ArrowClosed, color: "white"}
+                    let edge: Edge;
+                    if (target.isAgentConnection) {
+                        console.log("CAME INSIDE AGENT IF");
+                        edge = {
+                            id: target.connectionId,
+                            sourceHandle: target.sourceHandleId,
+                            source: connection.sourceId,
+                            target: target.targetId,
+                            type: "customEdge", 
+                            markerEnd:{type: MarkerType.ArrowClosed, color: "white"}
+                        }
+                    } else {
+                        edge = {
+                            id: target.connectionId,
+                            source: connection.sourceId,
+                            target: target.targetId,
+                            type: "customEdge", 
+                            markerEnd:{type: MarkerType.ArrowClosed, color: "white"}
+                        }
                     }
+                    
                     edges.push(edge);
                 }
             }
         }
+
+        console.log("EXTRACTED Nodes DB: " + JSON.stringify(nodes));
+        console.log("EXTRACTED Connections FROM DB: " + JSON.stringify(edges));
         setNodes(nodes);
         setEdges(edges);
     }
@@ -157,12 +242,18 @@ export function Canvas({id} : {id: string}) {
         }
     }
 
-    async function loadAllNodeTypes() {
-        const response = await getAllNodeTypes();
+    async function loadAllNodeTypes(type: ApiParamNodeType) {
+        const response = await getAllNodeTypes(type);
             if (response == null) {
                 showErrorToast("Error In Fetching Node Types");
             } else if (response.status === 200) {
-                setNodeTypeList(response.data);
+                if (type === "basic") {
+                    setBasicNodeTypeList(response.data);
+                } else if (type === "tool") {
+                    setToolNodeTypeList(response.data);
+                } else if (type === "llm") {
+                    setLLMNodeTypeList(response.data);
+                }
             } else {
                 showErrorToast("Error In Node Type");
         }
@@ -172,7 +263,9 @@ export function Canvas({id} : {id: string}) {
         if (id != "new") {
             loadWorkflowData();
         }
-        loadAllNodeTypes();
+        loadAllNodeTypes("basic");
+        loadAllNodeTypes("tool");
+        loadAllNodeTypes("llm");
 
         function handleEscapeKey(e: KeyboardEvent) {
             if (e.key === "Escape") {
@@ -183,6 +276,7 @@ export function Canvas({id} : {id: string}) {
         return () => removeEventListener("keydown", handleEscapeKey);
 
     },[id]);
+
 
     return <div className="flex-1  borderStyle relative">
         <ReactFlow 
@@ -205,7 +299,7 @@ export function Canvas({id} : {id: string}) {
 
     function NodeTypeList() {
     return <div
-        className={`absolute top-0 right-0 h-full w-[350px] bg-[#414244] text-white z-50 shadow-lg transform transition-transform duration-200 ${
+        className={`absolute top-0 right-0 h-full w-[350px] bg-[#414244] text-white z-50 shadow-lg transform transition-transform duration-300 ${
             showNodeTypeList ? "translate-x-0" : "translate-x-full"
         }`}
         >
@@ -215,7 +309,11 @@ export function Canvas({id} : {id: string}) {
             </div>
             <div className={`flex flex-col`}>
                 {
-                    nodeTypeList.map((nodeType, index) => {
+                    (currNodeTypeToShow === "basic" ? basicNodeTypeList 
+                        : currNodeTypeToShow === "tool" ? toolNodeTypeList
+                        : LLMNodeTypeList
+                        )
+                        .map((nodeType, index) => {
                         return <div onMouseEnter={() => setMouseEnterIndex(index)}
                             onMouseLeave={() => setMouseEnterIndex(null)}
                             onClick={() => {

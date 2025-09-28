@@ -12,6 +12,30 @@ export const GmailSendEmailSchema = z.object({
     message: z.string()
 });
 
+export const AgentParmaterSchemaLimited = z.object({
+    prompt: z.string()
+})
+
+export const LLMParameterSchema = z.object({
+    modelName: z.string()
+})
+
+export const ToolParameterSchema = z.object({
+    name: z.string(),
+    description: z.string(),
+    jsCode: z.string(),
+    inputSchema: z.record(
+        z.string(),
+        z.union([
+            z.string(),
+            z.number(),
+            z.boolean(),
+            z.null(),
+            z.undefined(),
+        ])
+    )
+});
+
 export const TelegramCredentialSchema = z.object({
     accessToken: z.string(),
     baseurl: z.string()
@@ -23,4 +47,9 @@ export const GmailCredentialsSchema = z.object({
     clientSecret: z.string(), 
     refreshToken: z.string(),
     expiresIn: z.number()
+});
+
+export const GeminiCredentialsSchema = z.object({
+    host: z.string(),
+    apiKey: z.string()
 });

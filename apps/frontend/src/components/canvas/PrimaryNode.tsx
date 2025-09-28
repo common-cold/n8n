@@ -4,12 +4,13 @@ import { CustomSourceHandle } from "./CustomHandle";
 import { Plus } from "react-bootstrap-icons";
 import { useCommonReactFlowFunctions } from "../../hooks/react-flow-hooks";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { newNodeMetadataAtom, showNodeTypeListAtom, toggleAtom } from "../../store/atoms";
+import { newNodeMetadataAtom, nodeTypeToShow, showNodeTypeListAtom, toggleAtom } from "../../store/atoms";
 
 export function PrimaryNode({id, data: {label}}: NodeProps<{label: string}>) {
     const {hasOutgoingEdge} = useCommonReactFlowFunctions();
     const setShowNodeTypeList = useSetAtom(showNodeTypeListAtom);
     const setNewNodeMetadata = useSetAtom(newNodeMetadataAtom);
+    const setNodeTypeToShow = useSetAtom(nodeTypeToShow);
     const toggle = useAtomValue(toggleAtom);
 
     
@@ -29,6 +30,7 @@ export function PrimaryNode({id, data: {label}}: NodeProps<{label: string}>) {
                 onClick={(e) => {
                     const {clientX, clientY} = e;
                     setNewNodeMetadata({x: clientX, y: clientY, sourceNode: id});
+                    setNodeTypeToShow("basic");
                     setShowNodeTypeList(true);
                 }}
                 className="bg-white text-black rounded-full w-6 h-6 flex items-center justify-center"

@@ -1,8 +1,8 @@
-import { BezierEdge, EdgeLabelRenderer, getBezierPath, MarkerType, useEdges, useNodes, type EdgeProps } from "reactflow";
-import { Plus, Trash } from "react-bootstrap-icons"; // Example icons
+import { BezierEdge, EdgeLabelRenderer, getBezierPath, MarkerType, SmoothStepEdge, useEdges, useNodes, type EdgeProps } from "reactflow";
+import { Plus, Trash } from "react-bootstrap-icons";
 import { useCommonReactFlowFunctions } from "../../hooks/react-flow-hooks";
 import { useAtom, useSetAtom } from "jotai";
-import { newNodeMetadataAtom, showNodeTypeListAtom } from "../../store/atoms";
+import { newNodeMetadataAtom, nodeTypeToShow, showNodeTypeListAtom } from "../../store/atoms";
 
 export function CustomEdge(props: EdgeProps) {
   const {
@@ -28,16 +28,19 @@ export function CustomEdge(props: EdgeProps) {
   const {deleteNodeAndEdge} = useCommonReactFlowFunctions();
   const setShowNodeTypeList = useSetAtom(showNodeTypeListAtom);
   const setNewNodeMetadata = useSetAtom(newNodeMetadataAtom);
+  const setNodeTypeToShow = useSetAtom(nodeTypeToShow);
 
   return (
     <>
-      <BezierEdge 
+      <BezierEdge
         {...props}
         style={{
           ...props.style,
-          strokeWidth: "3px"
+          strokeWidth: "3px",
+          ...((props.sourceHandleId === "tool-handle" || props.sourceHandleId === "llm-handle") && {strokeDasharray: '8 4'})
         }}
       />
+      
       <EdgeLabelRenderer>
         <div
           style={{
@@ -61,22 +64,28 @@ export function CustomEdge(props: EdgeProps) {
           >
             <Trash />
           </button>
-          <button
-            onClick={(e) => {
-              const {clientX, clientY} = e;
-              setNewNodeMetadata({x: clientX, y: clientY, sourceNode: props.source});
-              setShowNodeTypeList(true);
-            }}
-            style={{
-              background: "white",
-              border: "1px solid #ccc",
-              borderRadius: "50%",
-              padding: "4px",
-              cursor: "pointer",
-            }}
-          >
-            <Plus />
-          </button>
+          {
+            (props.sourceHandleId !== "tool-handle" && props.sourceHandleId !== "llm-handle")
+            &&
+            <button
+              onClick={(e) => {
+                const {clientX, clientY} = e;
+                setNewNodeMetadata({x: clientX, y: clientY, sourceNode: props.source});
+                setNodeTypeToShow("basic")
+                setShowNodeTypeList(true);
+              }}
+              style={{
+                background: "white",
+                border: "1px solid #ccc",
+                borderRadius: "50%",
+                padding: "4px",
+                cursor: "pointer",
+              }}
+            >
+              <Plus />
+            </button>
+          }
+          
         </div>
       </EdgeLabelRenderer>
     </>

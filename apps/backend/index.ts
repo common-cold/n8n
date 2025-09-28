@@ -2,7 +2,7 @@ import dotenv from "dotenv";
 import { join } from "path";
 import express from "express";
 import cors from "cors";
-import type { GetNodeType, GetWorkFlow, GmailCredentials, PostCredential, UpsertWorkFlow } from "@repo/types";
+import type { GetNodeType, GetWorkFlow, GmailCredentials, NodeType, PostCredential, UpsertWorkFlow } from "@repo/types";
 import { prisma } from "@repo/db/client";
 import {redisClient, workflowQueue} from "@repo/redis";
 import { decryptData, encryptData } from "@repo/common-utils";
@@ -245,10 +245,20 @@ app.get("/workflow/get/:id", async(req, res) => {
     return res.json(count);
 });
 
-app.get("/node-type", async(req, res) => {
+app.get("/node-type/:type", async(req, res) => {
+    const {type} = req.params;
+    let nodeTypes;
+    let filtered: GetNodeType[] = [];
     try {
-        const nodeTypes = await prisma.nodeType.findMany();
-        res.status(200).json(nodeTypes);
+        nodeTypes = await prisma.nodeType.findMany();
+        if (type === "basic") {
+            filtered = nodeTypes.filter(nodeType => !nodeType.name.startsWith("agent."));
+        } else if (type === "llm"){
+            filtered = nodeTypes.filter(nodeType => nodeType.name.startsWith("agent.llm."));
+        } else if (type === "tool") {
+            filtered = nodeTypes.filter(nodeType => nodeType.name.startsWith("agent.tool."));
+        }
+        return res.status(200).json(filtered);
     } catch (e) {
         res.status(500).json({
             message: e
@@ -473,7 +483,6 @@ app.get("/oauth/callback", async (req, res) => {
         });
     }
 });
-
 
 app.get("/oauth/status/:credentialId", async (req, res) => {
     try {

@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { data, useNavigate, useParams } from "react-router-dom"
-import { type GmailCredentials, type TelegramCredentials, type GmailSendMailParamaters, type TelegramSendMessageParamaters, type NodeCredentials, type CredentialType, type CustomNode } from "@repo/types";
+import { type GmailCredentials, type TelegramCredentials, type GmailSendMailParamaters, type TelegramSendMessageParamaters, type NodeCredentials, type CredentialType, type CustomNode, type AgentParameters, type FrontendAgentParameters, type LLMParameters, type GeminiCredentials, type ToolParameters } from "@repo/types";
 
 import telegram from "../assets/telegram.png";
 import gmail from "../assets/gmail.png";
 import google from "../assets/google.png";
+import agent from "../assets/agent.png";
+import code from "../assets/code.png";
 
 import { DropDownComponent } from "./Dropdown";
 
@@ -33,6 +35,7 @@ export function NodeEditPage() {
     const [currentCredentialData, setCurrentCredentialData] = useState<NodeCredentials | null>(null);
     const [currentNode, setCurrentNode] = useState<CustomNode | null>(null);
     const currentCredentialName = useRef<string | null>(null);
+    const [llmModel ,setllmModel] = useState<string | null>(null);
 
     const telegramParamaters = useRef<TelegramSendMessageParamaters>({
         chatId: "",
@@ -46,6 +49,21 @@ export function NodeEditPage() {
         message: ""
     });
 
+    const agentParameters = useRef<FrontendAgentParameters>({
+        prompt: "",
+    })
+
+    const geminiParameters = useRef<LLMParameters>({
+        modelName: ""
+    });
+
+    const codeToolParameters = useRef<ToolParameters>({
+        name: "",
+        description: "",
+        jsCode: "",
+        inputSchema: {}
+    })
+
     const telegramCredentials = useRef<TelegramCredentials>({
         accessToken: "",
         baseurl: "https://api.telegram.org"
@@ -55,6 +73,11 @@ export function NodeEditPage() {
         oAuthRedirectUrl: "http://localhost:5678/rest/oauth2-credential/callback",
         clientId: "",
         clientSecret: ""
+    })
+
+    const geminiCredentials = useRef<GeminiCredentials>({
+        host: "https://generativelanguage.googleapis.com",
+        apiKey: "",
     })
 
     const credentialName = useRef("");
@@ -77,6 +100,8 @@ export function NodeEditPage() {
         };
     }, [showCredentialModal]);
 
+    console.log(pageId);
+    console.log("model name: " + geminiParameters.current.modelName);
 
     useEffect(() => {
         async function loadAllUserCredential() {
@@ -99,6 +124,8 @@ export function NodeEditPage() {
                         return cred.type === "telegram"
                     } else if (pageId === "gmail.sendMail") {
                         return cred.type === "gmail"
+                    } else if (pageId === "agent.llm.geminichat") {
+                        return cred.type === "gemini"
                     }
                     return false;
             });
@@ -159,16 +186,39 @@ export function NodeEditPage() {
                         && 
                         <FormHeader icon={gmail} heading="Send an email" isCredentialHeader={false}/>
                     }
-                    <div className="flex flex-col px-5 gap-2">
-                        Credential to connect with
-                        <DropDownComponent 
-                            options={nodeRelevantCredList} 
-                            defaultOption={currentCredentialName.current} 
-                            defaultText="Select Credential"
-                            onChange={setCredentialId}
-                            addNewHandler={() => setShowCredentialModal(true)}
-                        />
-                    </div>
+
+                    {
+                        pageId === "agent" 
+                        && 
+                        <FormHeader icon={agent} heading="Create An AI Agent" isCredentialHeader={false}/>
+                    }
+
+                    {
+                        pageId === "agent.llm.geminichat" 
+                        && 
+                        <FormHeader icon={google} heading="Attach an LLM Model To Agent" isCredentialHeader={false}/>
+                    }
+
+                    {
+                        pageId === "agent.tool.code" 
+                        && 
+                        <FormHeader icon={code} heading="Attach a Code Tool To Agent" isCredentialHeader={false}/>
+                    }
+                    
+                    {
+                        pageId !== "agent" && pageId !== "agent.tool.code" 
+                        &&
+                        <div className="flex flex-col px-5 gap-2">
+                            Credential to connect with
+                            <DropDownComponent 
+                                options={nodeRelevantCredList} 
+                                defaultOption={currentCredentialName.current} 
+                                defaultText="Select Credential"
+                                onChange={setCredentialId}
+                                addNewHandler={() => setShowCredentialModal(true)}
+                            />
+                        </div>
+                    }
 
                     {
                         pageId === "telegram.sendMessage" && <TelegramParams/>
@@ -176,6 +226,17 @@ export function NodeEditPage() {
 
                     {
                         pageId === "gmail.sendMail" && <GmailParams/>
+                    }
+
+                    {
+                        pageId === "agent" && <AgentParams/>
+                    }
+
+                    {
+                        pageId === "agent.llm.geminichat" && <GeminiParams/>
+                    }
+                    {
+                        pageId === "agent.tool.code" && <CodeToolParams/>
                     }
                 </div>
                 {showCredentialModal && (
@@ -264,6 +325,116 @@ export function NodeEditPage() {
         </>
     }
 
+    function AgentParams() {
+        const currentParameters = currentNode?.parameters as FrontendAgentParameters;
+        if (currentParameters) {
+            agentParameters.current = {
+                prompt: currentParameters.prompt
+            }
+        }
+        return <>
+            <div className="flex flex-col px-5 gap-1">
+                Prompt
+                <textarea onChange={(e) => {
+                    agentParameters.current.prompt = e.currentTarget.value
+                }}  
+                    className="inputStyle overflow-y-auto"
+                    style={{height: "200px", width: "100%"}}
+
+                    defaultValue={currentParameters?.prompt ?? ""}
+                />
+            </div>
+        </>    
+    }
+
+    function GeminiParams() {
+        const currentParameters = currentNode?.parameters as LLMParameters;
+        if (currentParameters) {
+            geminiParameters.current = {
+                modelName: currentParameters.modelName
+            }
+        }
+        return <>
+            <div className="flex flex-col px-5 gap-1">
+                Model Name
+                <DropDownComponent 
+                    options={[{
+                        name: "Gemini 2.0 Flash",
+                        id: "Gemini 2.0 Flash"
+                    }]} 
+                    defaultOption={geminiParameters.current.modelName} 
+                    defaultText="Select Model"
+                    onChange={(val) => {
+                        geminiParameters.current.modelName = val
+                        setllmModel(val);
+                    }}
+                    addNewHandler={null}
+                />
+            </div>
+        </>    
+    }
+
+    function CodeToolParams() {
+        const currentParameters = currentNode?.parameters as ToolParameters;
+        if (currentParameters) {
+            codeToolParameters.current = {
+                name: currentParameters.name,
+                description: currentParameters.description,
+                jsCode: currentParameters.jsCode,
+                inputSchema: currentParameters.inputSchema
+            }
+        }
+        return <>
+            <div className="flex flex-col px-5 gap-1">
+                Name
+                <input onChange={(e) => {
+                    codeToolParameters.current.name = e.currentTarget.value
+                }}  
+                    className="inputStyle" 
+                    defaultValue={currentParameters?.name ?? ""}
+                />
+            </div>
+            <div className="flex flex-col px-5 gap-1">
+                Description
+                <input onChange={(e) => {
+                    codeToolParameters.current.description = e.currentTarget.value
+                }}  
+                    className="inputStyle" 
+                    defaultValue={currentParameters?.description ?? ""}
+                />
+            </div>
+            <div className="flex flex-col px-5 gap-1">
+                Javascript Code
+                <textarea onChange={(e) => {
+                    codeToolParameters.current.jsCode = e.currentTarget.value
+                }}  
+                    className="inputStyle overflow-y-auto"
+                    style={{height: "200px", width: "100%"}}
+                    spellCheck="false"
+                    wrap="soft"
+                    defaultValue={currentParameters?.jsCode ?? "function calculateSum(a, b) {\n    return `Sum is ${a+b}`;\n}"}
+                />
+            </div>
+            <div className="flex flex-col px-5 gap-1">
+                Input Schema
+                <textarea onChange={(e) => {
+                    codeToolParameters.current.inputSchema = JSON.parse(e.currentTarget.value)
+                }}  
+                    className="inputStyle overflow-y-auto"
+                    style={{height: "150px", width: "100%"}}
+                    spellCheck="false"
+                    wrap="soft"
+                    defaultValue={JSON.stringify(currentParameters?.inputSchema) ?? 
+                        JSON.stringify({
+                            "a": "string", 
+                            "b": "string"
+                        })
+                    }
+                />
+            </div>
+        </>    
+    }
+
     function FormHeader({icon, heading, isCredentialHeader} : {icon: string, heading: string, isCredentialHeader: boolean}) {
         return  <div className="lightGrey flex justify-between px-5 py-3 items-center">
             <div className="flex justify-start gap-2.5 items-center">
@@ -296,6 +467,19 @@ export function NodeEditPage() {
                         updateNodeParameters(currentNodeId!, gmailParameters.current, credentialId);
                         navigate(-1);
                     }
+                } else if (pageId === "agent") {
+                    updateNodeParameters(currentNodeId!, agentParameters.current, credentialId);
+                    navigate(-1);
+                } else if (pageId === "agent.llm.geminichat") {
+                    if (isCredentialHeader) {
+                        handleSaveCredential(geminiCredentials.current, credentialName.current, "gemini", USER_ID);
+                    } else {
+                        updateNodeParameters(currentNodeId!, geminiParameters.current, credentialId);
+                        navigate(-1);
+                    }
+                } else if (pageId === "agent.tool.code") {
+                    updateNodeParameters(currentNodeId!, codeToolParameters.current, credentialId);
+                    navigate(-1);
                 }
             }}
                 className="orangeColorBg text-white font-medium rounded-[3px] px-2 h-7 content-center text-sm cursor-pointer">
@@ -325,7 +509,15 @@ export function NodeEditPage() {
                             <FormHeader icon={gmail} heading="New Gmail Credential" isCredentialHeader={true}/>
                             <GmailCredentialParams/>
                         </>
-                        
+                    }
+
+                    {
+                        pageId === "agent.llm.geminichat" 
+                        && 
+                        <>
+                            <FormHeader icon={google} heading="New Gemini Credential" isCredentialHeader={true}/>
+                            <GeminiCredentialParams/>
+                        </>
                     }
                 </div>
             </div>
@@ -416,6 +608,37 @@ export function NodeEditPage() {
                 />
             </div>
             <SignInToGoogleButton/>
+        </>
+    }
+
+    function GeminiCredentialParams() {
+        const geminiCredentialParams = currentCredentialData as GeminiCredentials;
+        if (geminiCredentialParams) {
+            geminiCredentials.current = {
+                host: geminiCredentialParams.host,
+                apiKey: geminiCredentialParams.apiKey
+            }
+        }
+        return <>
+            <div className="flex flex-col px-5 gap-1">
+                Host
+                <input onChange={(e) => {
+                    geminiCredentials.current.host = e.currentTarget.value
+                }}  
+                    className="inputStyle" 
+                    defaultValue={geminiCredentialParams?.host ?? "https://generativelanguage.googleapis.com"}
+                />
+            </div>
+            <div className="flex flex-col px-5 gap-1">
+                API Key
+                <input onChange={(e) => {
+                    geminiCredentials.current.apiKey = e.currentTarget.value
+                }}  
+                    className="inputStyle" 
+                    type="password"
+                    defaultValue={geminiCredentialParams?.apiKey ?? ""}
+                />
+            </div>
         </>
     }
 

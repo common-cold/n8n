@@ -79,14 +79,17 @@ const agent = createAgent({
     tools: toolNode
 });
 
-const result = await agent.invoke({
-    messages: [{
-        role: "human",
-        content: "First calculate 3 + 4, then multiply the result by 2, then raise it to the power of 2"
-    }]
-});
+console.log("TOOLS: " + JSON.stringify([sum, product, power]));
+        console.log("AGENTS: " + JSON.stringify(agent));
+
+// const result = await agent.invoke({
+//     messages: [{
+//         role: "human",
+//         content: "First calculate 3 + 4, then multiply the result by 2, then raise it to the power of 2"
+//     }]
+// });
 
 
-const output = result.messages[result.messages.length - 1].content;
+// const output = result.messages[result.messages.length - 1].content;
 
-console.log(output);
+// console.log(output);

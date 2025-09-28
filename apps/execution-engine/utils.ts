@@ -1,9 +1,10 @@
-import { GmailCredentialsSchema, GmailSendEmailSchema, TelegramCredentialSchema, TelegramSendMessageSchema, type Connections, type CredentialType, type CustomNode, type NodeCredentials, type NodeIssue, type NodeType, type TelegramSendMessageParamaters, type WorkflowIssues } from "@repo/types";
+import { AgentParmaterSchemaLimited, GeminiCredentialsSchema, GmailCredentialsSchema, GmailSendEmailSchema, LLMParameterSchema, TelegramCredentialSchema, TelegramSendMessageSchema, ToolParameterSchema, type AgentParameters, type AgentSubNode, type Connections, type CredentialType, type CustomNode, type NodeCredentials, type NodeIssue, type NodeType, type TelegramSendMessageParamaters, type WorkflowIssues } from "@repo/types";
 import type { Workflow } from "../../packages/db/generated/prisma";
 import dotenv from "dotenv";
 import {join} from "path";
 import { prisma } from "@repo/db/client";
 import { decryptData } from "@repo/common-utils";
+import { fa, tr } from "zod/locales";
 
 
 export type NodeGraph = Map<string, Array<string>>;
@@ -19,7 +20,9 @@ export function buildNodeGraph(nodes: CustomNode[], connections: Connections, no
     for (const connection of connections) {
         const childNodes = nodegraph.get(connection.sourceId) ?? [];
         for (const target of connection.targets) {
-            childNodes.push(target.targetId);
+            if (!target.isAgentConnection) {
+                childNodes.push(target.targetId);
+            }
         }
         nodegraph.set(connection.sourceId, childNodes);
     }
@@ -41,9 +44,20 @@ export async function checkWorkflowIssues(workflow: Workflow) {
         workflowName: workflow.name,
         nodeIssues: []
     };
-    for (const node of workflow.nodes as CustomNode[]) {
-        const credentialStatus = await checkCredentials(node.credentialId);
-        if (!credentialStatus.ok) {
+
+    const flatListResponse = flattenedNodeList(workflow.nodes as CustomNode[]);
+    if (!flatListResponse.ok) {
+        workflowIssues.nodeIssues.push(...flatListResponse.issueArray!);
+        return workflowIssues;
+    }
+
+    for (const node of flatListResponse.flastList as (CustomNode | AgentSubNode)[]) {
+        let credentialStatus;
+
+        if (node.type !== "agent" && node.type !== "agent.tool.code") {
+            credentialStatus = await checkCredentials(node.credentialId);
+        }
+        if (credentialStatus && !credentialStatus.ok) {
             for (const issue of credentialStatus.issueArray!) {
                 const credentialIssue: NodeIssue = {
                     nodeName: node.name,
@@ -61,6 +75,13 @@ export async function checkWorkflowIssues(workflow: Workflow) {
                 res = TelegramSendMessageSchema.safeParse(node.parameters);
             } else if (node.type === "gmail.sendMail") {
                 res = GmailSendEmailSchema.safeParse(node.parameters);
+            } else if (node.type === "agent") {
+                let param = node.parameters as AgentParameters;
+                res = AgentParmaterSchemaLimited.safeParse({prompt: param.prompt});
+            } else if (node.type === "agent.llm.geminichat") {
+                res = LLMParameterSchema.safeParse(node.parameters);
+            } else if (node.type === "agent.tool.code") {
+                res = ToolParameterSchema.safeParse(node.parameters);
             }
             if (!res!.success) {
                 for (const issue of res!.error.issues) {
@@ -114,6 +135,8 @@ async function checkCredentials(credentialId: string | undefined): Promise<{
             res = TelegramCredentialSchema.safeParse(credentialData);
         } else if (credentialType === "gmail") {
             res = GmailCredentialsSchema.safeParse(credentialData);
+        } else if (credentialType === "gemini") {
+            res = GeminiCredentialsSchema.safeParse(credentialData);
         }
         if (!res!.success) {
             for (const issue of res!.error.issues) {
@@ -129,6 +152,59 @@ async function checkCredentials(credentialId: string | undefined): Promise<{
         return {
             ok: false,
             issueArray: [JSON.stringify(e)]
+        }
+    }
+}
+
+function flattenedNodeList(nodes: CustomNode[]): {
+    ok: boolean,
+    flastList: (CustomNode | AgentSubNode)[],
+    issueArray?: NodeIssue[]
+} {
+    let flatList: (CustomNode | AgentSubNode)[] = [];
+    let issues: NodeIssue[] = [];
+    for (const node of nodes) {
+        if (node.type === "agent") {
+            if (!node.parameters) {
+                issues.push({
+                    nodeName: node.name,
+                    issue: "Empty Parameters"
+                });
+                continue;
+            } 
+            const param = node.parameters as AgentParameters;
+            const llmNodes = param.llm;
+            if (llmNodes.length > 0) {
+                llmNodes.forEach(llmNode => {
+                    flatList.push(llmNode);
+                })
+            } else {
+                 issues.push({
+                    nodeName: node.name,
+                    issue: "Empty LLM Nodes"
+                });
+            }
+            const toolNodes = param.tools;
+            if (toolNodes.length > 0) {
+                toolNodes.forEach(toolNode => {
+                    flatList.push(toolNode);
+                })
+            }
+        }
+        flatList.push(node);
+    }
+
+    if (issues.length > 0) {
+        return {
+            ok: false,
+            flastList: [],
+            issueArray: issues
+        }
+    } else {
+        return {
+            ok: true,
+            flastList: flatList,
+            issueArray: []
         }
     }
 }

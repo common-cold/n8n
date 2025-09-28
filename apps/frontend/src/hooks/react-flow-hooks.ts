@@ -1,6 +1,6 @@
 import { addEdge, MarkerType, useReactFlow, type Edge, type XYPosition } from "reactflow";
 import { generateUUID } from "../utils/utils";
-import type { CustomNode, NodeParameter, NodeType } from "@repo/types";
+import type { CustomNode, FrontendAgentParameters, NodeParameter, NodeType } from "@repo/types";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import {  newNodeMetadataAtom, toggleAtom } from "../store/atoms";
 
@@ -18,13 +18,20 @@ export function useCommonReactFlowFunctions() {
     }
 
 
-    const createEdge = (sourceId: string, targetId: string) => {
+    const createEdge = (sourceId: string, targetId: string, nodeType: NodeType) => {
+        let sourceHandle;
+        if (nodeType === "agent.llm.geminichat") {
+            sourceHandle = "llm-handle"
+        } else if (nodeType === "agent.tool.code") {
+            sourceHandle = "tool-handle"
+        }
         const edge:Edge = {
             id: generateUUID(),
             source: sourceId,
             target: targetId,
             type: "customEdge",
-            markerEnd:{type: MarkerType.ArrowClosed, color: "white"}
+            markerEnd:{type: MarkerType.ArrowClosed, color: "white"},
+            ...(sourceHandle && {sourceHandle : sourceHandle})
         }
         setEdges(prev => addEdge(edge, prev));
         setToggle(prev => !prev);
@@ -42,22 +49,43 @@ export function useCommonReactFlowFunctions() {
         if (!newNodeMetadata) {
             return;
         }
+        let type = "secondaryNode";
+        if (nodeType === "agent") {
+            type = "agentNode"
+        } else if (nodeType === "agent.llm.geminichat" || nodeType === "agent.tool.code") {
+            type = "agentSubNode"
+        }
         const position = screenToFlowPosition({x: newNodeMetadata?.x, y: newNodeMetadata?.y})
         const targetId = generateUUID();
-        setNodes(prev => [
-            ...prev, 
-            {
+        let newNode;
+        if (type === "agentSubNode") {
+            newNode = {
                 id: targetId, 
                 data: {
                     label: "Node-x",
-                    type: nodeType
+                    type: nodeType,
+                    parentId: newNodeMetadata.sourceNode
                 }, 
-                type: "secondaryNode",
+                type: type,
+                position: {x: position.x + 12, y: position.y}
+            }
+        } else {
+            newNode = {
+                id: targetId, 
+                data: {
+                    label: "Node-x",
+                    type: nodeType,
+                }, 
+                type: type,
                 position: {x: position.x + 3, y: position.y}
             }
+        }
+        setNodes(prev => [
+            ...prev, 
+            newNode
         ]);
 
-        createEdge(newNodeMetadata.sourceNode, targetId);
+        createEdge(newNodeMetadata.sourceNode, targetId, nodeType);
     }
 
     const deleteNodeAndEdge = (nodeToRemoveId: string, parentNodeId: string) => {
@@ -67,7 +95,7 @@ export function useCommonReactFlowFunctions() {
         deleteEdge(parentNodeId, nodeToRemoveId);
     }
 
-    const updateNodeParameters = (nodeId: string, parameters: NodeParameter, credentialId: string | null) => {
+    const updateNodeParameters = (nodeId: string, parameters: NodeParameter | FrontendAgentParameters, credentialId: string | null) => {
         const nodes = getNodes();
         const newNodes = nodes.map(node =>
             node.id === nodeId
@@ -81,6 +109,7 @@ export function useCommonReactFlowFunctions() {
             }
             : node
         );
+        console.log("NEW NODES: " + JSON.stringify(newNodes));
         setNodes(newNodes);
     }
 

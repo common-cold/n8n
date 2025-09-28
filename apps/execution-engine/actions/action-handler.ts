@@ -1,6 +1,7 @@
 import type { CustomNode, GmailSendMailParamaters, NodeExecutionResult, NodeParameter, NodeType, TelegramSendMessageParamaters } from "@repo/types";
 import { runSendTelegramMessage } from "./telegram";
 import { runSendGmailMail } from "./gmail";
+import { runAgent } from "./agent/agentHelper";
 
 export async function runAction(node: CustomNode) {
     const nodeType: NodeType = node.type;
@@ -12,9 +13,13 @@ export async function runAction(node: CustomNode) {
         actionResult = await runSendTelegramMessage(nodeCredentialId, nodeParameters as TelegramSendMessageParamaters);
     } else if (nodeType === "gmail.sendMail") {
         actionResult = await runSendGmailMail(nodeCredentialId, nodeParameters as GmailSendMailParamaters);
-    } else {
+    } else if (nodeType === "agent") {
+        actionResult = await runAgent(node);
+    }
+    else {
         return null;
     }
     return actionResult;
 
 }
+

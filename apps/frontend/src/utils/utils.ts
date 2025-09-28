@@ -1,5 +1,5 @@
 import type { Edge, Node } from "reactflow";
-import type { Connections, CredentialType, CustomNode, NodeCredentials, PostCredential, SourceInfo, Targets, UpsertWorkFlow} from "@repo/types";
+import type { AgentParameters, AgentSubNode, ApiParamNodeType, Connections, CredentialType, CustomNode, NodeCredentials, PostCredential, SourceInfo, Targets, UpsertWorkFlow} from "@repo/types";
 import axios from "axios";
 import { encryptData } from "@repo/common-utils";
 
@@ -12,18 +12,67 @@ export function generateUUID() {
 }
 
 export async function createWorkFlow(name: string , nodes: Node[], edges: Edge[], update: boolean, workflowId: string | null) {
-    const nodesObj: CustomNode[] = nodes.map(node => {
-        return {
-            id: node.id,
-            name: node.data.label,
-            isPrimaryNode: node.type === "primaryNode",
-            position: node.position,
-            type: node.data.type,
-            ...(node.data.parameters && { parameters: node.data.parameters }),
-            ...(node.data.credentialId && { credentialId: node.data.credentialId }),
-        }
+    const parentIdToSubNodeMap: Map<string, AgentSubNode[]> = new Map();
+
+    const nodesObj: CustomNode[] = nodes
+        .filter(node => node.type !== "agentSubNode")
+        .map(node => {
+            return {
+                id: node.id,
+                name: node.data.label,
+                isPrimaryNode: node.type === "primaryNode",
+                position: node.position,
+                type: node.data.type,
+                ...(node.data.parameters && { parameters: node.data.parameters }),
+                ...(node.data.credentialId && { credentialId: node.data.credentialId }),
+            }
     });
-    
+ 
+    const agentNodes: AgentSubNode[] = nodes
+        .filter(node => node.type === "agentSubNode")
+        .map(node => {
+            const subNode = {
+                id: node.id,
+                name: node.data.label,
+                type: node.data.type,
+                position: node.position,
+                parentId: node.data.parentId,
+                ...(node.data.parameters && { parameters: node.data.parameters }),
+                ...(node.data.credentialId && { credentialId: node.data.credentialId }),
+            }
+            
+            let arr = parentIdToSubNodeMap.get(node.data.parentId) ?? [];
+            arr.push(subNode);
+            parentIdToSubNodeMap.set(node.data.parentId, arr);
+            
+            return subNode;
+    });
+
+    for (const [parentId, subNodes] of parentIdToSubNodeMap) {
+        for (const node of nodesObj) {
+            if (node.id === parentId) {
+                const toolSubNodes = subNodes.filter(n => n.type === "agent.tool.code");
+                const llmSubNodes = subNodes.filter(n => n.type === "agent.llm.geminichat");
+                if (!node.parameters) {
+                    let parameters: AgentParameters = {
+                        llm: llmSubNodes,
+                        tools: toolSubNodes
+                    }
+                    node.parameters = parameters;
+                } else {
+                    node.parameters = {
+                        ...node.parameters,
+                        llm: llmSubNodes,
+                        tools: toolSubNodes
+                    }
+                }
+            }
+        }
+    }
+    console.log("------------------------------------------------");
+    console.log("FIIIIIIIIIIIIIIIIIINNNNNNNNNNNAAAAAALLLLLLLLLL");
+    console.log(nodesObj);
+
     const sourceToEdgeMap: Map<string, Edge[]> = new Map();
     for (const edge of edges) {
         let arr = sourceToEdgeMap.get(edge.source) ?? [];
@@ -38,14 +87,21 @@ export async function createWorkFlow(name: string , nodes: Node[], edges: Edge[]
             targets.push({
                 targetId: edge.target,
                 connectionId: edge.id,
+                isAgentConnection: edge.sourceHandle != null ? true : false,
+                sourceHandleId: edge.sourceHandle != null ? edge.sourceHandle : null
             });
         }
         const sourceInfo: SourceInfo = {
             sourceId: sourceId,
-            targets: targets
+            targets: targets,
         }
         connectionsObj.push(sourceInfo);
-    })
+    });
+
+    console.log("------------------------------------------------");
+    console.log("FIIIIIIIIIIIIIIIIIINNNNNNNNNNNAAAAAALLLLLLLLLL");
+    console.log(nodesObj);
+    console.log(connectionsObj);
 
     const body: UpsertWorkFlow = {
         name: name,
@@ -65,6 +121,7 @@ export async function createWorkFlow(name: string , nodes: Node[], edges: Edge[]
     } catch (e) {
         return null;
     }
+    return null;
 }
 
 export async function getAllUserWorkflows() {
@@ -85,9 +142,9 @@ export async function getWorkflow(workflowId: string) {
     }
 }
 
-export async function getAllNodeTypes() {
+export async function getAllNodeTypes(type: ApiParamNodeType) {
     try {
-        const response = await axios.get(`http://localhost:8080/node-type`);
+        const response = await axios.get(`http://localhost:8080/node-type/${type}`);
         return response;
     } catch(e) {
         return null;
