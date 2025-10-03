@@ -12,8 +12,6 @@ model User {
   id        String     @id @default(uuid(7)) @db.Uuid
   email     String     @unique
   password  String
-  firstName String
-  lastName  String
   createdAt DateTime   @default(now())
   workflows Workflow[]
   credentials Credential[]
@@ -31,6 +29,13 @@ model Workflow {
 }
 
 model NodeType {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  name            String
+  description     String
+  url             String
+}
+
+model TriggerType {
   id              String   @id @default(uuid(7)) @db.Uuid
   name            String
   description     String

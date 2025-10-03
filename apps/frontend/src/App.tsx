@@ -5,6 +5,7 @@ import { WorkflowPage } from './components/WorkflowPage';
 import { Toaster } from 'react-hot-toast';
 import { ReactFlowProvider } from 'reactflow';
 import { NodeEditPage } from './components/NodeEditPage';
+import { AuthPage } from './components/auth/AuthPage';
 
 
 function App() {
@@ -12,7 +13,8 @@ function App() {
       <ReactFlowProvider>
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Homepage/>} />
+            <Route path="/" element={<AuthPage/>} />
+            <Route path="/homepage" element={<Homepage/>} />
             <Route path="/workflows/:id" element={<WorkflowPage/>}>
               <Route path="edit/:pageId" element={<NodeEditPage/>}></Route>
             </Route>

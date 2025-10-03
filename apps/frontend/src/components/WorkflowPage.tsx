@@ -3,6 +3,7 @@ import { Canvas } from "./canvas/Canvas";
 import toast from "react-hot-toast";
 import { Outlet, useParams } from "react-router-dom";
 import { WorkflowPageHeader } from "./WorkflowPageHeader";
+import { BackToHpButton } from "./BackToHomepageButton";
 
 export function WorkflowPage() {
     let {id} = useParams();
@@ -14,7 +15,7 @@ export function WorkflowPage() {
                     <div className="relative">
                         <div className="flex flex-row h-screen font-satoshi">
                             <div className="secondaryColorBg w-52 py-5 px-10 borderStyle" >
-                                HI
+                                <BackToHpButton/>
                             </div>
                             <div className="primaryColorBg flex-1 flex flex-col">
                                 <WorkflowPageHeader id={id}/>

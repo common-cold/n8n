@@ -1,15 +1,14 @@
-import { addEdge, MarkerType, useReactFlow, type Edge, type XYPosition } from "reactflow";
+import { addEdge, MarkerType, useReactFlow, type Edge, type Node, type XYPosition } from "reactflow";
 import { generateUUID } from "../utils/utils";
-import type { CustomNode, FrontendAgentParameters, NodeParameter, NodeType } from "@repo/types";
-import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import {  newNodeMetadataAtom, toggleAtom } from "../store/atoms";
+import type { CustomNode, FrontendAgentParameters, NodeParameter, NodeType, ToolParameters, TriggerType } from "@repo/types";
+import { useAtomValue, useSetAtom } from "jotai";
+import {  newNodeMetadataAtom } from "../store/atoms";
 
 
 
 export function useCommonReactFlowFunctions() {
     const { setNodes, getNode, getNodes, setEdges, getEdges, screenToFlowPosition } = useReactFlow();
     const newNodeMetadata = useAtomValue(newNodeMetadataAtom);
-    const [toggle ,setToggle] = useAtom(toggleAtom);
 
 
     const hasOutgoingEdge = (nodeId: string) => {
@@ -18,7 +17,7 @@ export function useCommonReactFlowFunctions() {
     }
 
 
-    const createEdge = (sourceId: string, targetId: string, nodeType: NodeType) => {
+    const createEdge = (sourceId: string, targetId: string, nodeType: NodeType | TriggerType) => {
         let sourceHandle;
         if (nodeType === "agent.llm.geminichat") {
             sourceHandle = "llm-handle"
@@ -34,52 +33,50 @@ export function useCommonReactFlowFunctions() {
             ...(sourceHandle && {sourceHandle : sourceHandle})
         }
         setEdges(prev => addEdge(edge, prev));
-        setToggle(prev => !prev);
     }
 
     const deleteEdge = (sourceId: string, targetId: string) => {
         const edges = getEdges();
         const newEdges = edges.filter(edge => (edge.source != sourceId || edge.target != targetId));
         setEdges(newEdges);
-        setToggle(prev => !prev);
     }
 
 
-    const addNodeAndCreateEdge = (nodeType: NodeType) => {
+    const addNodeAndCreateEdge = (nodeType: NodeType | TriggerType, nodeImage: string, nodeName: string) => {
         if (!newNodeMetadata) {
             return;
         }
-        let type = "secondaryNode";
-        if (nodeType === "agent") {
+        let type;
+        if (nodeType === "manual" || nodeType === "webhook") {
+            type = "primaryNode";
+        } else if (nodeType === "agent") {
             type = "agentNode"
         } else if (nodeType === "agent.llm.geminichat" || nodeType === "agent.tool.code") {
             type = "agentSubNode"
+        } else {
+            type = "secondaryNode"
         }
         const position = screenToFlowPosition({x: newNodeMetadata?.x, y: newNodeMetadata?.y})
         const targetId = generateUUID();
-        let newNode;
-        if (type === "agentSubNode") {
-            newNode = {
-                id: targetId, 
-                data: {
-                    label: "Node-x",
-                    type: nodeType,
-                    parentId: newNodeMetadata.sourceNode
-                }, 
-                type: type,
-                position: {x: position.x + 12, y: position.y}
-            }
-        } else {
-            newNode = {
-                id: targetId, 
-                data: {
-                    label: "Node-x",
-                    type: nodeType,
-                }, 
-                type: type,
-                position: {x: position.x + 3, y: position.y}
-            }
+        let newNode = {
+            id: targetId, 
+            data: {
+                label: (nodeType === "agent.tool.code" ? "" : nodeName),
+                type: nodeType,
+                image: nodeImage,
+                ...(type === "agentSubNode" && {parentId: newNodeMetadata.sourceNode}),
+                ...(nodeType === "webhook" && {isActive: false})
+            }, 
+            type: type,
+            position: (
+                type === "agentSubNode" 
+                ?
+                {x: position.x + 12, y: position.y}
+                :
+                {x: position.x + 3, y: position.y}
+            )
         }
+    
         setNodes(prev => [
             ...prev, 
             newNode
@@ -103,10 +100,22 @@ export function useCommonReactFlowFunctions() {
                 ...node,
                 data: {
                     ...node.data,
+                    ...( 'name' in parameters && {label: (parameters as ToolParameters).name}),
                     parameters: parameters,
                     ...(credentialId != null && { credentialId })
                 }
             }
+            : node
+        );
+        console.log("NEW NODES: " + JSON.stringify(newNodes));
+        setNodes(newNodes);
+    }
+
+    const updateNodeData = (nodeId: string, updatedNode: Node) => {
+        const nodes = getNodes();
+        const newNodes = nodes.map(node =>
+            node.id === nodeId
+            ? updatedNode
             : node
         );
         console.log("NEW NODES: " + JSON.stringify(newNodes));

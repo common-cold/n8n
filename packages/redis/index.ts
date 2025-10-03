@@ -17,3 +17,21 @@ export const workflowQueue = new Queue("workflowQueue", {
 export const redisClient = createClient();
 await redisClient.connect();
 
+
+export const publisherClient = await createClient()
+    .on("error", (err) => 
+        console.log("Could not connect Publisher Client", err)
+    )
+    .on("connect", () => {
+        "Publisher Client Connected"
+    })
+.connect();
+
+export const subscriberClient = await createClient()
+    .on("error", (err) => 
+        console.log("Could not connect Subscriber Client", err)
+    )
+    .on("connect", () => {
+        "Subscriber Client Connected"
+    })
+.connect();

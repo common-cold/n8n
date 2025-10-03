@@ -1,19 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { data, useNavigate, useParams } from "react-router-dom"
-import { type GmailCredentials, type TelegramCredentials, type GmailSendMailParamaters, type TelegramSendMessageParamaters, type NodeCredentials, type CredentialType, type CustomNode, type AgentParameters, type FrontendAgentParameters, type LLMParameters, type GeminiCredentials, type ToolParameters } from "@repo/types";
+import { type GmailCredentials, type TelegramCredentials, type GmailSendMailParamaters, type TelegramSendMessageParamaters, type NodeCredentials, type CredentialType, type CustomNode, type AgentParameters, type FrontendAgentParameters, type LLMParameters, type GeminiCredentials, type ToolParameters, type WebhookTriggerParameters } from "@repo/types";
 
 import telegram from "../assets/telegram.png";
 import gmail from "../assets/gmail.png";
 import google from "../assets/google.png";
 import agent from "../assets/agent.png";
 import code from "../assets/code.png";
+import webhook from "../assets/webhook.png";
 
 import { DropDownComponent } from "./Dropdown";
 
 import { useCommonReactFlowFunctions } from "../hooks/react-flow-hooks";
-import { useAtom } from "jotai";
-import { currentNodeIdAtom } from "../store/atoms";
-import { getOAuthUrl, getUserCredentialsByType, pollForOAuthStatus, saveCredential } from "../utils/utils";
+import { useAtom, useAtomValue } from "jotai";
+import { currentNodeIdAtom, currentWorkflowIdAtom, nodesOutputAtom } from "../store/atoms";
+import { decryptCredentialData, getOAuthUrl, getUserCredentialsByType, pollForOAuthStatus, saveCredential } from "../utils/utils";
 import { showErrorToast, showSuccessToast } from "./WorkflowPage";
 import type { Credential } from "../../../../packages/db/generated/prisma";
 import { useReactFlow, type Node } from "reactflow";
@@ -36,7 +37,14 @@ export function NodeEditPage() {
     const [currentNode, setCurrentNode] = useState<CustomNode | null>(null);
     const currentCredentialName = useRef<string | null>(null);
     const [llmModel ,setllmModel] = useState<string | null>(null);
+    const currentWorkflowId = useAtomValue(currentWorkflowIdAtom);
+    const [nodesOutput, setNodesOutput] = useAtom(nodesOutputAtom);
+    const [currentNodeOutput, setCurrentNodeOutput] = useState<any | null>(null);
 
+    const webhookTriggerParameters = useRef<WebhookTriggerParameters>({
+        webhookUrl: ""
+    })
+    
     const telegramParamaters = useRef<TelegramSendMessageParamaters>({
         chatId: "",
         message: ""
@@ -60,8 +68,11 @@ export function NodeEditPage() {
     const codeToolParameters = useRef<ToolParameters>({
         name: "",
         description: "",
-        jsCode: "",
-        inputSchema: {}
+        jsCode: "function calculateSum(a, b) {\n    return `Sum is ${a+b}`;\n}",
+        inputSchema: {
+            "a": "string", 
+            "b": "string"
+        }
     })
 
     const telegramCredentials = useRef<TelegramCredentials>({
@@ -83,6 +94,11 @@ export function NodeEditPage() {
     const credentialName = useRef("");
 
     useEffect(() => {
+        for (const cred of nodeRelevantCredList) {
+            if (cred.id === credentialId) {
+                setCurrentCredentialData(JSON.parse(decryptData(cred.data, ENCRYPTION_KEY)));
+            }
+        }
         function handleEscapeKey(event: KeyboardEvent) {
             if (event.key === "Escape") {
                 if (showCredentialModal) {
@@ -130,6 +146,16 @@ export function NodeEditPage() {
                     return false;
             });
             setNodeRelevantCredList(nodeRelevantCredList);
+            for (const cred of nodeRelevantCredList) {
+                if (cred.id === credentialId) {
+                    currentCredentialName.current = cred.name
+                }
+            }
+            for (const cred of nodeRelevantCredList) {
+            if (cred.id === credentialId) {
+                setCurrentCredentialData(JSON.parse(decryptData(cred.data, ENCRYPTION_KEY)));
+            }
+        }
         }
         
         loadAllUserCredential();
@@ -150,10 +176,15 @@ export function NodeEditPage() {
                         ...(node.data.credentialId && { credentialId: node.data.credentialId })
                     } 
                     setCurrentNode(customNodeObj);
+                    console.log("CUSTOM OBJ CRED ID: " + customNodeObj.credentialId);
+                    if (customNodeObj?.credentialId) {
+                        setCredentialId(customNodeObj?.credentialId);
+                    }
                 }
             }
         }
-
+        console.log("NODES OUTPUT: " + JSON.stringify(Object.fromEntries(nodesOutput)));
+        setCurrentNodeOutput(nodesOutput.get(currentNodeId!));
         updateCurrentNode();
     }, []);
 
@@ -172,8 +203,8 @@ export function NodeEditPage() {
             currentCredentialName.current = currentCredential[0].name;
     }, [credentialId]);
 
-    return <div className="fixed inset-0 bg-black/40 flex justify-center items-center z-[1000] text-white">
-        <div className="w-[400px] h-[600px] secondaryColorBg rounded-[7px]">
+    return <div className="fixed inset-0 flex justify-between gap-10 bg-black/40 flex justify-center items-center z-[1000] text-white">
+        <div className="w-[400px] h-[600px] secondaryColorBg rounded-[7px] overflow-y-auto">
                 <div className="flex flex-col gap-5">
                     {
                         pageId === "telegram.sendMessage" 
@@ -206,7 +237,13 @@ export function NodeEditPage() {
                     }
                     
                     {
-                        pageId !== "agent" && pageId !== "agent.tool.code" 
+                        pageId === "webhook" 
+                        && 
+                        <FormHeader icon={webhook} heading="Your Webhook URL" isCredentialHeader={false}/>
+                    }
+
+                    {
+                        pageId !== "agent" && pageId !== "agent.tool.code" && pageId !== "webhook" 
                         &&
                         <div className="flex flex-col px-5 gap-2">
                             Credential to connect with
@@ -235,14 +272,40 @@ export function NodeEditPage() {
                     {
                         pageId === "agent.llm.geminichat" && <GeminiParams/>
                     }
+
                     {
                         pageId === "agent.tool.code" && <CodeToolParams/>
                     }
+
+                    {
+                        pageId === "webhook" && <WebhookParams/>
+                    }
+
                 </div>
                 {showCredentialModal && (
                     <AddCredentialPage />
                 )}
         </div>
+        {
+            (currentNode?.type !== "agent.llm.geminichat" && currentNode?.type !== "agent.tool.code")
+            &&
+            <div className="w-[400px] h-[600px] secondaryColorBg rounded-[7px] overflow-y-auto">
+                <div className="flex flex-col gap-5">
+                    <div className="lightGrey flex justify-between px-5 py-3 items-center text-white font-[Satoshi-Black]">
+                        Output
+                    </div>
+                    <div className="px-2">
+                        <div className="h-[500px] rounded-[5px] border border-gray-700 px-5 py-2 bg-[#2d2e2e] overflow-auto">
+                            <pre className="whitespace-pre-wrap break-words text-white text-sm">
+                                {JSON.stringify(currentNodeOutput, null, 2)}
+                            </pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+        
+
     </div>
 
     function TelegramParams() {
@@ -435,6 +498,36 @@ export function NodeEditPage() {
         </>    
     }
 
+    function WebhookParams() {
+        let webhookUrl;
+        const currentParameters = currentNode?.parameters as WebhookTriggerParameters;
+        if (currentParameters) {
+            webhookTriggerParameters.current = {
+                webhookUrl: currentParameters.webhookUrl
+            }
+        } else if (currentWorkflowId) {
+            console.log("came inside currentworkflowID IF");
+            webhookUrl = `http://localhost:8082/webhook/${currentWorkflowId}`;
+            webhookTriggerParameters.current = {
+                webhookUrl: webhookUrl
+            }
+        }
+        return <>
+            <div className="flex flex-col px-5 gap-1">
+                Webhook Id
+                <div className="h-[60px] rounded-[5px] border border-gray-700 px-[10px] py-2 bg-[#2d2e2e]">
+                    { 
+                        currentWorkflowId
+                        ?
+                        webhookTriggerParameters.current.webhookUrl
+                        :
+                        "Please Save the Workflow First"                        
+                    }
+                </div>
+            </div>
+        </>    
+    }
+
     function FormHeader({icon, heading, isCredentialHeader} : {icon: string, heading: string, isCredentialHeader: boolean}) {
         return  <div className="lightGrey flex justify-between px-5 py-3 items-center">
             <div className="flex justify-start gap-2.5 items-center">
@@ -452,39 +545,46 @@ export function NodeEditPage() {
                 }
                 
             </div>
-            <div onClick={() => {
-                if (pageId === "telegram.sendMessage") {
-                    if (isCredentialHeader) {
-                        handleSaveCredential(telegramCredentials.current, credentialName.current, "telegram", USER_ID);
-                    } else {
-                        updateNodeParameters(currentNodeId!, telegramParamaters.current, credentialId);
+                <div onClick={() => {
+                    if (pageId === "webhook") {
+                        if (!currentWorkflowId) {
+                            showErrorToast("Please Save the Workflow First");
+                        } else {
+                            updateNodeParameters(currentNodeId!, webhookTriggerParameters.current, credentialId);
+                        }
+                        navigate(-1);
+                    } else if (pageId === "telegram.sendMessage") {
+                        if (isCredentialHeader) {
+                            handleSaveCredential(telegramCredentials.current, credentialName.current, "telegram", USER_ID);
+                        } else {
+                            updateNodeParameters(currentNodeId!, telegramParamaters.current, credentialId);
+                            navigate(-1);
+                        }
+                    } else if (pageId === "gmail.sendMail") {
+                        if (isCredentialHeader) {
+                            handleSaveCredential(gmailCredentials.current, credentialName.current, "gmail", USER_ID);
+                        } else {
+                            updateNodeParameters(currentNodeId!, gmailParameters.current, credentialId);
+                            navigate(-1);
+                        }
+                    } else if (pageId === "agent") {
+                        updateNodeParameters(currentNodeId!, agentParameters.current, credentialId);
+                        navigate(-1);
+                    } else if (pageId === "agent.llm.geminichat") {
+                        if (isCredentialHeader) {
+                            handleSaveCredential(geminiCredentials.current, credentialName.current, "gemini", USER_ID);
+                        } else {
+                            updateNodeParameters(currentNodeId!, geminiParameters.current, credentialId);
+                            navigate(-1);
+                        }
+                    } else if (pageId === "agent.tool.code") {
+                        updateNodeParameters(currentNodeId!, codeToolParameters.current, credentialId);
                         navigate(-1);
                     }
-                } else if (pageId === "gmail.sendMail") {
-                    if (isCredentialHeader) {
-                        handleSaveCredential(gmailCredentials.current, credentialName.current, "gmail", USER_ID);
-                    } else {
-                        updateNodeParameters(currentNodeId!, gmailParameters.current, credentialId);
-                        navigate(-1);
-                    }
-                } else if (pageId === "agent") {
-                    updateNodeParameters(currentNodeId!, agentParameters.current, credentialId);
-                    navigate(-1);
-                } else if (pageId === "agent.llm.geminichat") {
-                    if (isCredentialHeader) {
-                        handleSaveCredential(geminiCredentials.current, credentialName.current, "gemini", USER_ID);
-                    } else {
-                        updateNodeParameters(currentNodeId!, geminiParameters.current, credentialId);
-                        navigate(-1);
-                    }
-                } else if (pageId === "agent.tool.code") {
-                    updateNodeParameters(currentNodeId!, codeToolParameters.current, credentialId);
-                    navigate(-1);
-                }
-            }}
-                className="orangeColorBg text-white font-medium rounded-[3px] px-2 h-7 content-center text-sm cursor-pointer">
-                Save
-            </div>
+                }}
+                    className="orangeColorBg text-white font-medium rounded-[3px] px-2 h-7 content-center text-sm cursor-pointer">
+                    Save
+                </div>
         </div>
     }
 

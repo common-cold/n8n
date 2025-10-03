@@ -1,10 +1,11 @@
-import { AgentParmaterSchemaLimited, GeminiCredentialsSchema, GmailCredentialsSchema, GmailSendEmailSchema, LLMParameterSchema, TelegramCredentialSchema, TelegramSendMessageSchema, ToolParameterSchema, type AgentParameters, type AgentSubNode, type Connections, type CredentialType, type CustomNode, type NodeCredentials, type NodeIssue, type NodeType, type TelegramSendMessageParamaters, type WorkflowIssues } from "@repo/types";
+import { AgentParmaterSchemaLimited, GeminiCredentialsSchema, GmailCredentialsSchema, GmailSendEmailSchema, LLMParameterSchema, TelegramCredentialSchema, TelegramSendMessageSchema, ToolParameterSchema, type AgentParameters, type AgentSubNode, type Connections, type CredentialType, type CustomNode, type MessageType, type NodeCredentials, type NodeIssue, type NodeType, type PubSubToWebSocketMessage, type QueueData, type TelegramSendMessageParamaters, type WorkflowIssues } from "@repo/types";
 import type { Workflow } from "../../packages/db/generated/prisma";
 import dotenv from "dotenv";
 import {join} from "path";
 import { prisma } from "@repo/db/client";
-import { decryptData } from "@repo/common-utils";
+import { CHANNEL_NAME, decryptData } from "@repo/common-utils";
 import { fa, tr } from "zod/locales";
+import { publisherClient } from "@repo/redis";
 
 
 export type NodeGraph = Map<string, Array<string>>;
@@ -14,6 +15,8 @@ export type Output = {
 }
 
 export type NodesOutput = Map<string, Output>;
+
+
 
 
 export function buildNodeGraph(nodes: CustomNode[], connections: Connections, nodegraph: NodeGraph) {
@@ -39,7 +42,7 @@ export function initialiseNodesOutputMap(nodegraph: NodeGraph, nodesOutput: Node
     }
 }
 
-export async function checkWorkflowIssues(workflow: Workflow) {
+export async function checkWorkflowIssues(workflow: QueueData) {
     let workflowIssues: WorkflowIssues = {
         workflowName: workflow.name,
         nodeIssues: []
@@ -53,6 +56,10 @@ export async function checkWorkflowIssues(workflow: Workflow) {
 
     for (const node of flatListResponse.flastList as (CustomNode | AgentSubNode)[]) {
         let credentialStatus;
+        
+        if (node.type === "manual" || node.type === "webhook") {
+            continue;
+        }
 
         if (node.type !== "agent" && node.type !== "agent.tool.code") {
             credentialStatus = await checkCredentials(node.credentialId);
@@ -68,9 +75,6 @@ export async function checkWorkflowIssues(workflow: Workflow) {
         }
         let res;
         try {
-            if (!node.type) {
-                continue;
-            }
             if (node.type === "telegram.sendMessage") {
                 res = TelegramSendMessageSchema.safeParse(node.parameters);
             } else if (node.type === "gmail.sendMail") {
@@ -207,4 +211,16 @@ function flattenedNodeList(nodes: CustomNode[]): {
             issueArray: []
         }
     }
+}
+
+export async function publishMessage(id: string, success: boolean, type: MessageType, data: string) {
+    const message = {
+        id: id,
+        success: success,
+        type: type,
+        data: data
+    
+    } as PubSubToWebSocketMessage
+
+    await publisherClient.publish(CHANNEL_NAME, JSON.stringify(message));
 }

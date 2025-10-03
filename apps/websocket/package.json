@@ -1,0 +1,16 @@
+{
+  "name": "websocket",
+  "module": "index.ts",
+  "type": "module",
+  "dependencies": {
+    "@repo/redis": "*",
+    "@repo/common-utils": "*",
+    "@repo/types": "*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

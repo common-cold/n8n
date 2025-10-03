@@ -37,12 +37,12 @@ export const ToolParameterSchema = z.object({
 });
 
 export const TelegramCredentialSchema = z.object({
-    accessToken: z.string(),
+    accessToken: z.string().min(1),
     baseurl: z.string()
 });
 
 export const GmailCredentialsSchema = z.object({
-    oAuthRedirectUrl: z.string(), 
+    oAuthRedirectUrl: z.string(),
     clientId: z.string(), 
     clientSecret: z.string(), 
     refreshToken: z.string(),

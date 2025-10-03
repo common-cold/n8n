@@ -25,6 +25,8 @@ export type BasicNodeType = "telegram.sendMessage" | "gmail.sendMail" | "agent";
 
 export type NodeType = BasicNodeType | AgentSubNodeType
 
+export type TriggerType = "manual" | "webhook";
+
 //only used in api call for getting nodetypes from db
 export type ApiParamNodeType = "basic" | "llm" | "tool"
 
@@ -34,7 +36,8 @@ export type CredentialType = "telegram" | "gmail" | "gemini"
 export type CustomNode = {
     id: string,
     name: string,
-    type: NodeType,
+    image: string,
+    type: NodeType | TriggerType,
     parameters?: NodeParameter,
     credentialId?: string,
     isPrimaryNode: boolean,
@@ -42,12 +45,19 @@ export type CustomNode = {
         x: number,
         y: number
     }
+    
+    //only for webhook trigger
+    isActive?: boolean
 }
 
 export type AgentSubNode = Omit<CustomNode, 'isPrimaryNode'> & {
     parentId: string
 }
 
+
+export type WebhookTriggerParameters = {
+    webhookUrl: string
+}
 
 export type TelegramSendMessageParamaters = {
     chatId: string,
@@ -82,7 +92,7 @@ export type ToolParameters = {
     }
 }
 
-export type NodeParameter = TelegramSendMessageParamaters | GmailSendMailParamaters | AgentParameters | LLMParameters | ToolParameters
+export type NodeParameter = WebhookTriggerParameters | TelegramSendMessageParamaters | GmailSendMailParamaters | AgentParameters | LLMParameters | ToolParameters
 
 export type TelegramCredentials = {
     accessToken: string,
