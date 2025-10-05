@@ -1,19 +1,19 @@
 import { z } from "zod";
 
 export const TelegramSendMessageSchema = z.object({
-    chatId: z.string(),
-    message: z.string()
+    chatId: z.string().min(1),
+    message: z.string().min(1)
 });
 
 export const GmailSendEmailSchema = z.object({
-    to: z.email(),
-    subject: z.string(),
-    emailType: z.string(),
-    message: z.string()
+    to: z.email().min(1),
+    subject: z.string().min(1),
+    emailType: z.string().min(1),
+    message: z.string().min(1)
 });
 
 export const AgentParmaterSchemaLimited = z.object({
-    prompt: z.string()
+    prompt: z.string().min(1)
 })
 
 export const LLMParameterSchema = z.object({
@@ -21,9 +21,9 @@ export const LLMParameterSchema = z.object({
 })
 
 export const ToolParameterSchema = z.object({
-    name: z.string(),
-    description: z.string(),
-    jsCode: z.string(),
+    name: z.string().min(1),
+    description: z.string().min(1),
+    jsCode: z.string().min(1),
     inputSchema: z.record(
         z.string(),
         z.union([
@@ -38,18 +38,18 @@ export const ToolParameterSchema = z.object({
 
 export const TelegramCredentialSchema = z.object({
     accessToken: z.string().min(1),
-    baseurl: z.string()
+    baseurl: z.string().min(1)
 });
 
 export const GmailCredentialsSchema = z.object({
-    oAuthRedirectUrl: z.string(),
-    clientId: z.string(), 
-    clientSecret: z.string(), 
-    refreshToken: z.string(),
+    oAuthRedirectUrl: z.string().min(1),
+    clientId: z.string().min(1), 
+    clientSecret: z.string().min(1), 
+    refreshToken: z.string().min(1),
     expiresIn: z.number()
 });
 
 export const GeminiCredentialsSchema = z.object({
-    host: z.string(),
-    apiKey: z.string()
+    host: z.string().min(1),
+    apiKey: z.string().min(1)
 });
